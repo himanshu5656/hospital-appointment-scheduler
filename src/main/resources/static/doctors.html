@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctors - MediBook</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; }
+        nav { background: #1a73e8; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
+        nav h1 { color: white; font-size: 20px; }
+        nav div { display: flex; gap: 16px; align-items: center; }
+        nav span { color: white; font-size: 14px; }
+        nav button { padding: 8px 16px; background: white; color: #1a73e8; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; }
+        .container { max-width: 1100px; margin: 32px auto; padding: 0 16px; }
+        h2 { color: #333; margin-bottom: 8px; }
+        .subtitle { color: #666; font-size: 14px; margin-bottom: 24px; }
+        .search { width: 100%; padding: 12px 16px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; margin-bottom: 24px; outline: none; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .card { background: white; border-radius: 16px; padding: 24px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); cursor: pointer; transition: transform 0.2s; }
+        .card:hover { transform: translateY(-4px); box-shadow: 0 6px 20px rgba(0,0,0,0.12); }
+        .avatar { width: 56px; height: 56px; border-radius: 50%; background: #e8f0fe; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; color: #1a73e8; margin-bottom: 16px; }
+        .card h3 { font-size: 16px; color: #222; margin-bottom: 4px; }
+        .spec { font-size: 13px; color: #1a73e8; font-weight: 500; margin-bottom: 12px; }
+        .info { font-size: 13px; color: #666; margin-bottom: 6px; }
+        .book-btn { width: 100%; padding: 10px; background: #1a73e8; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; margin-top: 12px; }
+        .book-btn:hover { background: #1557b0; }
+        .my-apt { padding: 8px 16px; background: #e8f0fe; color: #1a73e8; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h1>🏥 MediBook</h1>
+    <div>
+        <span id="userName"></span>
+        <button class="my-apt" onclick="window.location.href='/booking.html'">My Appointments</button>
+        <button onclick="logout()">Logout</button>
+    </div>
+</nav>
+
+<div class="container">
+    <h2>Find a Doctor</h2>
+    <p class="subtitle">Choose from our experienced specialists</p>
+    <input class="search" type="text" placeholder="Search by name or specialization..." oninput="filterDoctors(this.value)"/>
+    <div class="grid" id="doctorGrid"></div>
+</div>
+
+<script>
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (!user) window.location.href = '/index.html';
+    document.getElementById('userName').textContent = 'Hi, ' + user.name;
+
+    let allDoctors = [];
+
+    async function loadDoctors() {
+        const res = await fetch('/api/doctors');
+        allDoctors = await res.json();
+        renderDoctors(allDoctors);
+    }
+
+    function renderDoctors(doctors) {
+        const grid = document.getElementById('doctorGrid');
+        grid.innerHTML = doctors.map(d => `
+            <div class="card">
+                <div class="avatar">${d.user.name.charAt(3).toUpperCase()}</div>
+                <h3>${d.user.name}</h3>
+                <p class="spec">${d.specialization}</p>
+                <p class="info">📅 ${d.experienceYears} years experience</p>
+                <p class="info">🏠 ${d.roomNumber}</p>
+                <p class="info">📞 ${d.user.phone}</p>
+                <button class="book-btn" onclick="bookSlot(${d.id}, '${d.user.name}', '${d.specialization}')">Book Appointment</button>
+            </div>
+        `).join('');
+    }
+
+    function filterDoctors(val) {
+        const filtered = allDoctors.filter(d =>
+            d.user.name.toLowerCase().includes(val.toLowerCase()) ||
+            d.specialization.toLowerCase().includes(val.toLowerCase())
+        );
+        renderDoctors(filtered);
+    }
+
+    function bookSlot(doctorId, name, spec) {
+        localStorage.setItem('selectedDoctor', JSON.stringify({ id: doctorId, name, spec }));
+        window.location.href = '/booking.html';
+    }
+
+    function logout() {
+        localStorage.clear();
+        window.location.href = '/index.html';
+    }
+
+    loadDoctors();
+</script>
+</body>
+</html>

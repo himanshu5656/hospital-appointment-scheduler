@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking - MediBook</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; }
+        nav { background: #1a73e8; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
+        nav h1 { color: white; font-size: 20px; }
+        nav button { padding: 8px 16px; background: white; color: #1a73e8; border: none; border-radius: 8px; cursor: pointer; }
+        .container { max-width: 800px; margin: 32px auto; padding: 0 16px; }
+        .card { background: white; border-radius: 16px; padding: 24px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        h2 { color: #333; margin-bottom: 16px; }
+        .doc-info { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+        .avatar { width: 56px; height: 56px; border-radius: 50%; background: #e8f0fe; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; color: #1a73e8; }
+        .slots { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+        .slot { padding: 8px 16px; border: 1px solid #e0e0e0; border-radius: 8px; cursor: pointer; font-size: 13px; background: white; }
+        .slot:hover { border-color: #1a73e8; color: #1a73e8; }
+        .slot.selected { background: #1a73e8; color: white; border-color: #1a73e8; }
+        input, textarea { width: 100%; padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; margin-bottom: 14px; outline: none; }
+        button.confirm { width: 100%; padding: 12px; background: #1a73e8; color: white; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; }
+        button.confirm:hover { background: #1557b0; }
+        .apt-card { background: #f8f9fa; border-radius: 12px; padding: 16px; margin-bottom: 12px; border-left: 4px solid #1a73e8; }
+        .apt-card h4 { color: #222; margin-bottom: 4px; }
+        .apt-card p { font-size: 13px; color: #666; margin-bottom: 4px; }
+        .status { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+        .CONFIRMED { background: #e8f5e9; color: #2e7d32; }
+        .CANCELLED { background: #ffebee; color: #c62828; }
+        .cancel-btn { float: right; padding: 6px 12px; background: #ffebee; color: #c62828; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; }
+        .msg { text-align: center; padding: 12px; border-radius: 8px; margin-top: 12px; font-size: 14px; }
+        .success { background: #e8f5e9; color: #2e7d32; }
+        .error { background: #ffebee; color: #c62828; }
+        .tabs { display: flex; gap: 12px; margin-bottom: 20px; }
+        .tab { padding: 10px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; border: 1px solid #e0e0e0; background: white; }
+        .tab.active { background: #1a73e8; color: white; border-color: #1a73e8; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h1>🏥 MediBook</h1>
+    <button onclick="window.location.href='/doctors.html'">← Back to Doctors</button>
+</nav>
+
+<div class="container">
+    <div class="tabs">
+        <div class="tab active" onclick="showSection('book')">Book Appointment</div>
+        <div class="tab" onclick="showSection('my')">My Appointments</div>
+    </div>
+
+    <!-- Book Section -->
+    <div id="bookSection">
+        <div class="card" id="doctorCard" style="display:none">
+            <h2>Select Time Slot</h2>
+            <div class="doc-info">
+                <div class="avatar" id="docAvatar">D</div>
+                <div>
+                    <h3 id="docName"></h3>
+                    <p style="color:#1a73e8;font-size:13px" id="docSpec"></p>
+                </div>
+            </div>
+            <p style="font-size:14px;color:#555;margin-bottom:8px">Available Slots:</p>
+            <div class="slots" id="slotsContainer"></div>
+            <input type="text" id="reason" placeholder="Reason for visit (e.g. Chest Pain, Fever...)"/>
+            <button class="confirm" onclick="confirmBooking()">Confirm Appointment</button>
+            <div class="msg" id="bookMsg" style="display:none"></div>
+        </div>
+        <div class="card" id="noDoctor" style="display:none">
+            <p style="text-align:center;color:#666">Please select a doctor first!</p>
+            <br>
+            <button class="confirm" onclick="window.location.href='/doctors.html'">Go to Doctors</button>
+        </div>
+    </div>
+
+    <!-- My Appointments Section -->
+    <div id="mySection" style="display:none">
+        <div class="card">
+            <h2>My Appointments</h2>
+            <div id="aptList"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const user = JSON.parse(localStorage.getItem('user'));
+    const doctor = JSON.parse(localStorage.getItem('selectedDoctor'));
+    let selectedSlot = null;
+
+    if (!user) window.location.href = '/index.html';
+
+    function showSection(sec) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        event.target.classList.add('active');
+        document.getElementById('bookSection').style.display = sec === 'book' ? 'block' : 'none';
+        document.getElementById('mySection').style.display = sec === 'my' ? 'block' : 'none';
+        if (sec === 'my') loadMyAppointments();
+    }
+
+    async function loadSlots() {
+        if (!doctor) {
+            document.getElementById('noDoctor').style.display = 'block';
+            return;
+        }
+        document.getElementById('doctorCard').style.display = 'block';
+        document.getElementById('docName').textContent = doctor.name;
+        document.getElementById('docSpec').textContent = doctor.spec;
+        document.getElementById('docAvatar').textContent = doctor.name.charAt(3).toUpperCase();
+
+        const res = await fetch(`/api/slots/doctor/${doctor.id}`);
+        const slots = await res.json();
+        const container = document.getElementById('slotsContainer');
+
+        if (slots.length === 0) {
+            container.innerHTML = '<p style="color:#999;font-size:13px">No available slots</p>';
+            return;
+        }
+
+        container.innerHTML = slots.map(s => `
+            <div class="slot" onclick="selectSlot(this, ${s.id})">${s.slotTime.substring(0,5)} — ${s.slotDate}</div>
+        `).join('');
+    }
+
+    function selectSlot(el, id) {
+        document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
+        el.classList.add('selected');
+        selectedSlot = id;
+    }
+
+    async function confirmBooking() {
+        if (!selectedSlot) { alert('Please select a slot!'); return; }
+        const reason = document.getElementById('reason').value || 'General Checkup';
+        const res = await fetch(`/api/appointments/book?patientId=${user.id}&slotId=${selectedSlot}&reason=${reason}`, { method: 'POST' });
+        const msg = document.getElementById('bookMsg');
+        msg.style.display = 'block';
+        if (res.ok) {
+            msg.className = 'msg success';
+            msg.textContent = '✅ Appointment booked successfully!';
+            loadSlots();
+        } else {
+            msg.className = 'msg error';
+            msg.textContent = '❌ Slot already booked or error occurred!';
+        }
+    }
+
+    async function loadMyAppointments() {
+        const res = await fetch(`/api/appointments/my/${user.id}`);
+        const apts = await res.json();
+        const list = document.getElementById('aptList');
+        if (apts.length === 0) {
+            list.innerHTML = '<p style="color:#999;text-align:center">No appointments yet!</p>';
+            return;
+        }
+        list.innerHTML = apts.map(a => `
+            <div class="apt-card">
+                <button class="cancel-btn" onclick="cancelApt(${a.id})">Cancel</button>
+                <h4>${a.slot.doctor.user.name} — ${a.slot.doctor.specialization}</h4>
+                <p>📅 ${a.slot.slotDate} at ${a.slot.slotTime.substring(0,5)}</p>
+                <p>📝 ${a.reason}</p>
+                <span class="status ${a.status}">${a.status}</span>
+            </div>
+        `).join('');
+    }
+
+    async function cancelApt(id) {
+        if (!confirm('Cancel this appointment?')) return;
+        await fetch(`/api/appointments/cancel/${id}`, { method: 'DELETE' });
+        loadMyAppointments();
+    }
+
+    loadSlots();
+</script>
+</body>
+</html>

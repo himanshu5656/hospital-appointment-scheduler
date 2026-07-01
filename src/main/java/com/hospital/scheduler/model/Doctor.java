@@ -19,4 +19,5 @@ public class Doctor {
     private String specialization;
     private int experienceYears;
     private String roomNumber;
+    private String photoUrl;
 }
